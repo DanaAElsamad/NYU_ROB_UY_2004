@@ -12,9 +12,11 @@ JOINT_NAME_LEAD = "leg_front_r_3"
 
 ####
 ####
-KP = 0.0  # YOUR KP VALUE
-KI = 0.0 # YOUR KI VALUE
-KD = 0.0  # YOUR KD VALUE
+KP = 0.8 # YOUR KP VALUE
+
+KI = 0.05 # YOUR KI VALUE
+
+KD = 0.04 # YOUR KD VALUE
 ####
 ####
 LOOP_RATE = 200  # Hz
@@ -22,8 +24,7 @@ DELTA_T = 1 / LOOP_RATE
 MAX_TORQUE = 2.0
 DEAD_BAND_SIZE = 0.095
 PENDULUM_CONTROL = False
-LEG_TRACKING_CONTROL = False
-
+LEG_TRACKING_CONTROL = not PENDULUM_CONTROL
 
 class JointStateSubscriber(Node):
     direction = 0
@@ -47,6 +48,7 @@ class JointStateSubscriber(Node):
         self.joint_vel_lead = 0
         self.target_joint_pos = 0
         self.target_joint_vel = 0
+        self.sum_joint_error = 0
         # self.torque_history = deque(maxlen=DELAY)
 
         # Create a timer to run control_loop at the specified frequency
@@ -67,11 +69,18 @@ class JointStateSubscriber(Node):
 
         return torque
 
-    def calculate_torque_for_leg_tracking(self, joint_pos, joint_vel, target_joint_pos, target_joint_vel):
-        ####
-        #### YOUR CODE HERE
-        ####
-        torque = 0
+    def calculate_torque_for_leg_tracking_control(self, pos_error):
+        self.sum_joint_error += pos_error
+        self.sum_joint_error = np.clip(self.sum_joint_error, -0.3, 0.3)
+        return self.sum_joint_error
+    
+
+    def calculate_torque_for_leg_tracking(self, joint_pos, joint_vel, target_joint_pos, target_joint_vel):        # PD Control
+        pos_error = target_joint_pos - joint_pos
+        vel_error = target_joint_vel-joint_vel
+        
+
+        torque = KP * pos_error  + KD * (vel_error) + KI * self.calculate_torque_for_leg_tracking_control(pos_error)
 
 
 
@@ -85,8 +94,8 @@ class JointStateSubscriber(Node):
 
     def print_info(self):
         """Print joint information every 2 control loops"""
-        if True:
-            return
+        #if True:
+            #return
             
         if self.print_counter == 0:
             self.get_logger().info(
